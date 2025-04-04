@@ -5,26 +5,17 @@ pub fn main() !void {
     const stdout = std.io.getStdOut().writer();
 
     // Test vectors matching the C implementation
+    const key = [_]u8{ 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c, 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
     var ad = [_]u8{ 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
     var nonce = [_]u8{ 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
-    var key = [_]u8{ 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c, 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
     var ptext = [_]u8{ 0x7f, 0x43, 0xf6, 0xaf, 0x88, 0x5a, 0x30, 0x8d, 0x31, 0x31, 0x98, 0xa2, 0xe0, 0x37, 0x07, 0x34 };
     var ctext: [32]u8 = [_]u8{0} ** 32;
     var ptext_bis: [16]u8 = [_]u8{0} ** 16;
-    // We'll track success/failure of operations
 
-    // Initialize AES context
-    var aes_rkeys = cymric.AesRoundkeys{
-        .enc_ctx = undefined,
-    };
-
-    // Initialize simplified cipher context
-    const ctx = cymric.CipherCtx{
-        .roundkeys = &aes_rkeys,
-    };
+    const ctx = cymric.Cymric.init(&key);
 
     // Test case 1: Cymric1 (12, 4, 3)
-    var ret = cymric.cymric1_encrypt(ctext[0..4], ctext[4..20], ptext[0..4], ad[0..3], nonce[0..12], &key, ctx) catch |err| {
+    var ret = cymric.cymric1_encrypt(ctx, ctext[0..4], ctext[4..20], ptext[0..4], ad[0..3], nonce[0..12]) catch |err| {
         try stdout.print("manx1_enc (12, 4, 3) returned ret = -1 and outlen = 0\n", .{});
         return err;
     };
@@ -34,7 +25,7 @@ pub fn main() !void {
     }
     try stdout.print("\n", .{});
 
-    ret = cymric.cymric1_decrypt(ptext_bis[0..4], ctext[0..4], ctext[4..20], ad[0..3], nonce[0..12], &key, ctx) catch |err| {
+    ret = cymric.cymric1_decrypt(ctx, ptext_bis[0..4], ctext[0..4], ctext[4..20], ad[0..3], nonce[0..12]) catch |err| {
         try stdout.print("manx1_dec (12, 4, 3) returned -1 and outlen = 0\n", .{});
         return err;
     };
@@ -46,7 +37,7 @@ pub fn main() !void {
 
     // Test case 2: Cymric1 (8, 8, 4)
     @memset(ctext[0..], 0);
-    ret = cymric.cymric1_encrypt(ctext[0..8], ctext[8..24], ptext[0..8], ad[0..4], nonce[0..8], &key, ctx) catch |err| {
+    ret = cymric.cymric1_encrypt(ctx, ctext[0..8], ctext[8..24], ptext[0..8], ad[0..4], nonce[0..8]) catch |err| {
         try stdout.print("manx1_enc (8, 8, 4) returned ret = -1 and outlen = 0\n", .{});
         return err;
     };
@@ -57,7 +48,7 @@ pub fn main() !void {
     try stdout.print("\n", .{});
 
     @memset(ptext_bis[0..], 0);
-    ret = cymric.cymric1_decrypt(ptext_bis[0..8], ctext[0..8], ctext[8..24], ad[0..4], nonce[0..8], &key, ctx) catch |err| {
+    ret = cymric.cymric1_decrypt(ctx, ptext_bis[0..8], ctext[0..8], ctext[8..24], ad[0..4], nonce[0..8]) catch |err| {
         try stdout.print("manx1_dec (8, 8, 4) returned -1 and outlen = 0\n", .{});
         return err;
     };

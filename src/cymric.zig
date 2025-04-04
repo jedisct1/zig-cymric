@@ -7,24 +7,33 @@ pub const nonce_bytes = 12;
 pub const block_bytes = 16;
 pub const tag_bytes = 16;
 
-pub const AesRoundkeys = struct {
-    enc_ctx: crypto.core.aes.AesEncryptCtx(crypto.core.aes.Aes128),
+pub const Cymric = struct {
+    const AesRoundkeys = struct {
+        enc_ctx: crypto.core.aes.AesEncryptCtx(crypto.core.aes.Aes128),
 
-    pub fn init(key: []const u8) AesRoundkeys {
-        var key_array: [key_bytes]u8 = undefined;
-        @memcpy(&key_array, key[0..key_bytes]);
+        fn init(key: []const u8) AesRoundkeys {
+            var key_array: [key_bytes]u8 = undefined;
+            @memcpy(&key_array, key[0..key_bytes]);
+            return .{
+                .enc_ctx = crypto.core.aes.Aes128.initEnc(key_array),
+            };
+        }
+
+        fn encrypt(self: *const AesRoundkeys, out: []u8, block: *const [block_bytes]u8) void {
+            self.enc_ctx.encrypt(out[0..block_bytes], block);
+        }
+    };
+
+    roundkeys1: AesRoundkeys,
+    roundkeys2: AesRoundkeys,
+
+    pub fn init(key: []const u8) Cymric {
+        assert(key.len == key_bytes * 2);
         return .{
-            .enc_ctx = crypto.core.aes.Aes128.initEnc(key_array),
+            .roundkeys1 = AesRoundkeys.init(key[0..key_bytes]),
+            .roundkeys2 = AesRoundkeys.init(key[key_bytes..]),
         };
     }
-
-    pub fn encrypt(self: *const AesRoundkeys, out: []u8, block: *const [block_bytes]u8) void {
-        self.enc_ctx.encrypt(out[0..block_bytes], block);
-    }
-};
-
-pub const CipherCtx = struct {
-    roundkeys: *AesRoundkeys,
 };
 
 pub const Error = error{
@@ -50,13 +59,12 @@ inline fn xor(dst: []u8, a: []const u8, b: []const u8) void {
 ///   - key: Encryption key
 ///   - ctx: Cipher context containing the encryption functions and round keys
 pub fn cymric1_encrypt(
+    ctx: Cymric,
     out: []u8,
     tag: []u8,
     msg: []const u8,
     ad: []const u8,
     nonce: []const u8,
-    key: []const u8,
-    ctx: CipherCtx,
 ) Error!void {
     // Check inputs' validity first to avoid unnecessary work
     if (msg.len + nonce.len > block_bytes) return Error.InvalidInputLength;
@@ -70,9 +78,6 @@ pub fn cymric1_encrypt(
     // Determine if |N|+|M|== n
     const b = if (msg.len + nonce.len == block_bytes) @as(u8, 1 << 7) else 0;
 
-    // Initialize the AES context with the key
-    ctx.roundkeys.* = AesRoundkeys.init(key);
-
     // Prepare the first block: Y0 <- E_K(padn(N||A||b0))
     var block: [block_bytes]u8 align(16) = [_]u8{0} ** block_bytes;
     @memcpy(block[0..nonce.len], nonce);
@@ -80,13 +85,13 @@ pub fn cymric1_encrypt(
     block[nonce.len + ad.len] = b | 0x20;
 
     // Encrypt with AES
-    ctx.roundkeys.encrypt(y0, &block);
+    ctx.roundkeys1.encrypt(y0, &block);
 
     // Prepare the second block: Y1 <- E_K(padn(N||A||b1))
     block[nonce.len + ad.len] = b | 0x60; // Set both bits in one operation
 
     // Encrypt with AES
-    ctx.roundkeys.encrypt(y1, &block);
+    ctx.roundkeys1.encrypt(y1, &block);
 
     // C <- M ^ Y0 ^ Y1 (optimize for common case of small messages)
     var y0y1_xor: [block_bytes]u8 align(16) = undefined;
@@ -116,9 +121,7 @@ pub fn cymric1_encrypt(
     xor(&block, &block, y0[0..block_bytes]);
 
     // T = msb(E_K'(T))
-    // Initialize with the second key and encrypt
-    ctx.roundkeys.* = AesRoundkeys.init(key[key_bytes..]);
-    ctx.roundkeys.encrypt(tmp_buffer[0..block_bytes], &block);
+    ctx.roundkeys2.encrypt(tmp_buffer[0..block_bytes], &block);
 
     @memcpy(tag[0..tag_bytes], tmp_buffer[0..tag_bytes]);
 }
@@ -139,13 +142,12 @@ pub fn cymric1_encrypt(
 /// Returns:
 ///   - Error.AuthenticationFailed if the tag verification fails
 pub fn cymric1_decrypt(
+    ctx: Cymric,
     out: []u8,
     cipher: []const u8,
     tag: []const u8,
     ad: []const u8,
     nonce: []const u8,
-    key: []const u8,
-    ctx: CipherCtx,
 ) Error!void {
     // Check inputs' validity first to avoid unnecessary work
     if (cipher.len + nonce.len > block_bytes) return Error.InvalidInputLength;
@@ -160,9 +162,6 @@ pub fn cymric1_decrypt(
     // Determine if |N|+|C|== n
     const b = if (cipher.len + nonce.len == block_bytes) @as(u8, 1 << 7) else 0;
 
-    // Initialize the AES context with the key
-    ctx.roundkeys.* = AesRoundkeys.init(key);
-
     // Prepare the first block: Y0 <- E_K(padn(N||A||b0))
     var block: [block_bytes]u8 align(16) = [_]u8{0} ** block_bytes;
     @memcpy(block[0..nonce.len], nonce);
@@ -170,13 +169,13 @@ pub fn cymric1_decrypt(
     block[nonce.len + ad.len] = b | 0x20;
 
     // Encrypt with AES
-    ctx.roundkeys.encrypt(y0, &block);
+    ctx.roundkeys1.encrypt(y0, &block);
 
     // Prepare the second block: Y1 <- E_K(padn(N||A||b1))
     block[nonce.len + ad.len] = b | 0x60; // Set both bits in one operation
 
     // Encrypt with AES
-    ctx.roundkeys.encrypt(y1, &block);
+    ctx.roundkeys1.encrypt(y1, &block);
 
     // M <- C ^ Y0 ^ Y1 (optimize for common case of small messages)
     var y0y1_xor: [block_bytes]u8 align(16) = undefined;
@@ -206,9 +205,7 @@ pub fn cymric1_decrypt(
     xor(&block, &block, y0[0..block_bytes]);
 
     // T = msb(E_K'(T))
-    // Initialize with the second key and encrypt
-    ctx.roundkeys.* = AesRoundkeys.init(key[key_bytes..]);
-    ctx.roundkeys.encrypt(&tag_computed, &block);
+    ctx.roundkeys2.encrypt(&tag_computed, &block);
 
     // Verify tag using constant-time comparison
     if (!crypto.timing_safe.eql([tag_bytes]u8, tag_computed, tag[0..tag_bytes].*)) {
@@ -231,13 +228,12 @@ pub fn cymric1_decrypt(
 ///   - key: Encryption key
 ///   - ctx: Cipher context containing the encryption functions and round keys
 pub fn cymric2_encrypt(
+    ctx: Cymric,
     out: []u8,
     tag: []u8,
     msg: []const u8,
     ad: []const u8,
     nonce: []const u8,
-    key: []const u8,
-    ctx: CipherCtx,
 ) Error!void {
     // Check inputs' validity first to avoid unnecessary work
     if (msg.len > block_bytes) return Error.InvalidInputLength;
@@ -251,9 +247,6 @@ pub fn cymric2_encrypt(
     // Determine if |M|== n
     const b = if (msg.len == block_bytes) @as(u8, 1 << 7) else 0;
 
-    // Initialize the AES context with the key
-    ctx.roundkeys.* = AesRoundkeys.init(key);
-
     // Prepare the first block: Y0 <- E_K(padn(N||A||b0))
     var block: [block_bytes]u8 align(16) = [_]u8{0} ** block_bytes;
     @memcpy(block[0..nonce.len], nonce);
@@ -261,13 +254,13 @@ pub fn cymric2_encrypt(
     block[nonce.len + ad.len] = b | 0x20;
 
     // Encrypt with AES
-    ctx.roundkeys.encrypt(y0, &block);
+    ctx.roundkey1s.encrypt(y0, &block);
 
     // Prepare the second block: Y1 <- E_K(padn(N||A||b1))
     block[nonce.len + ad.len] = b | 0x60; // Set both bits in one operation
 
     // Encrypt with AES
-    ctx.roundkeys.encrypt(y1, &block);
+    ctx.roundkeys1.encrypt(y1, &block);
 
     // C <- M ^ Y0 ^ Y1 (optimize for common case of small messages)
     var y0y1_xor: [block_bytes]u8 align(16) = undefined;
@@ -296,9 +289,7 @@ pub fn cymric2_encrypt(
     xor(&block, &block, y0[0..block_bytes]);
 
     // T = msb(E_K'(T))
-    // Initialize with the second key and encrypt
-    ctx.roundkeys.* = AesRoundkeys.init(key[key_bytes..]);
-    ctx.roundkeys.encrypt(tmp_buffer[0..block_bytes], &block);
+    ctx.roundkeys2.encrypt(tmp_buffer[0..block_bytes], &block);
 
     @memcpy(tag[0..tag_bytes], tmp_buffer[0..tag_bytes]);
 }
@@ -319,13 +310,12 @@ pub fn cymric2_encrypt(
 /// Returns:
 ///   - Error.AuthenticationFailed if the tag verification fails
 pub fn cymric2_decrypt(
+    ctx: Cymric,
     out: []u8,
     cipher: []const u8,
     tag: []const u8,
     ad: []const u8,
     nonce: []const u8,
-    key: []const u8,
-    ctx: CipherCtx,
 ) Error!void {
     // Check inputs' validity first to avoid unnecessary work
     if (cipher.len > block_bytes) return Error.InvalidInputLength;
@@ -340,9 +330,6 @@ pub fn cymric2_decrypt(
     // Determine if |C|== n
     const b = if (cipher.len == block_bytes) @as(u8, 1 << 7) else 0;
 
-    // Initialize the AES context with the key
-    ctx.roundkeys.* = AesRoundkeys.init(key);
-
     // Prepare the first block: Y0 <- E_K(padn(N||A||b0))
     var block: [block_bytes]u8 align(16) = [_]u8{0} ** block_bytes;
     @memcpy(block[0..nonce.len], nonce);
@@ -350,13 +337,13 @@ pub fn cymric2_decrypt(
     block[nonce.len + ad.len] = b | 0x20;
 
     // Encrypt with AES
-    ctx.roundkeys.encrypt(y0, &block);
+    ctx.roundkeys1.encrypt(y0, &block);
 
     // Prepare the second block: Y1 <- E_K(padn(N||A||b1))
     block[nonce.len + ad.len] = b | 0x60; // Set both bits in one operation
 
     // Encrypt with AES
-    ctx.roundkeys.encrypt(y1, &block);
+    ctx.roundkeys1.encrypt(y1, &block);
 
     // M <- C ^ Y0 ^ Y1 (optimize for common case of small messages)
     var y0y1_xor: [block_bytes]u8 align(16) = undefined;
@@ -385,9 +372,7 @@ pub fn cymric2_decrypt(
     xor(&block, &block, y0[0..block_bytes]);
 
     // T = msb(E_K'(T))
-    // Initialize with the second key and encrypt
-    ctx.roundkeys.* = AesRoundkeys.init(key[key_bytes..]);
-    ctx.roundkeys.encrypt(&tag_computed, &block);
+    ctx.roundkeys2.encrypt(&tag_computed, &block);
 
     // Verify tag using constant-time comparison
     if (!crypto.timing_safe.eql([tag_bytes]u8, tag_computed, tag[0..tag_bytes].*)) {
