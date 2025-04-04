@@ -18,11 +18,9 @@ pub fn main() !void {
         .enc_ctx = undefined,
     };
 
-    // Initialize cipher context
+    // Initialize simplified cipher context
     const ctx = cymric.CipherCtx{
         .roundkeys = &aes_rkeys,
-        .encrypt = cymric.aesEncrypt,
-        .kexpand = cymric.aesKeyExpand,
     };
 
     // Test case 1: Cymric1 (12, 4, 3)
