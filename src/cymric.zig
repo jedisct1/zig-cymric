@@ -41,8 +41,7 @@ pub const Error = error{
     AuthenticationFailed,
 };
 
-inline fn xor(dst: []u8, a: []const u8, b: []const u8) void {
-    assert(dst.len == a.len and a.len == b.len);
+inline fn xor(dst: *[block_bytes]u8, a: *const [block_bytes]u8, b: *const [block_bytes]u8) void {
     for (dst, a, b) |*d, x, y| d.* = x ^ y;
 }
 
