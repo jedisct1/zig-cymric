@@ -1,4 +1,6 @@
 const std = @import("std");
+const crypto = std.crypto;
+const assert = std.debug.assert;
 
 pub const key_bytes = 16;
 pub const nonce_bytes = 12;
@@ -6,13 +8,13 @@ pub const block_bytes = 16;
 pub const tag_bytes = 16;
 
 pub const AesRoundkeys = struct {
-    enc_ctx: std.crypto.core.aes.AesEncryptCtx(std.crypto.core.aes.Aes128),
+    enc_ctx: crypto.core.aes.AesEncryptCtx(crypto.core.aes.Aes128),
 
     pub fn init(key: []const u8) AesRoundkeys {
         var key_array: [key_bytes]u8 = undefined;
         @memcpy(&key_array, key[0..key_bytes]);
         return .{
-            .enc_ctx = std.crypto.core.aes.Aes128.initEnc(key_array),
+            .enc_ctx = crypto.core.aes.Aes128.initEnc(key_array),
         };
     }
 
@@ -31,7 +33,7 @@ pub const Error = error{
 };
 
 inline fn xor(dst: []u8, a: []const u8, b: []const u8) void {
-    std.debug.assert(dst.len == a.len and a.len == b.len);
+    assert(dst.len == a.len and a.len == b.len);
     for (dst, a, b) |*d, x, y| d.* = x ^ y;
 }
 
@@ -203,7 +205,7 @@ pub fn cymric1_decrypt(
     second_key_rkeys.encrypt(&tag_computed, &block);
 
     // Verify tag using constant-time comparison
-    if (!std.crypto.timing_safe.eql([tag_bytes]u8, tag_computed, tag[0..tag_bytes].*)) {
+    if (!crypto.timing_safe.eql([tag_bytes]u8, tag_computed, tag[0..tag_bytes].*)) {
         // If tags don't match, zero out the output
         @memset(out[0..cipher.len], 0);
         return Error.AuthenticationFailed;
@@ -376,7 +378,7 @@ pub fn cymric2_decrypt(
     second_key_rkeys.encrypt(&tag_computed, &block);
 
     // Verify tag using constant-time comparison
-    if (!std.crypto.timing_safe.eql([tag_bytes]u8, tag_computed, tag[0..tag_bytes].*)) {
+    if (!crypto.timing_safe.eql([tag_bytes]u8, tag_computed, tag[0..tag_bytes].*)) {
         // If tags don't match, zero out the output
         @memset(out[0..cipher.len], 0);
         return Error.AuthenticationFailed;
