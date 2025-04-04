@@ -5,7 +5,7 @@ const assert = std.debug.assert;
 const AesCtx = crypto.core.aes.AesEncryptCtx(crypto.core.aes.Aes128);
 
 pub const key_bytes = 16;
-pub const nonce_bytes = 12;
+pub const nonce_bytes_max = 12;
 pub const block_bytes = 16;
 pub const tag_bytes = 16;
 
@@ -41,10 +41,10 @@ pub const Cymric = struct {
     pub fn cymric1_encrypt(
         ctx: Cymric,
         out: []u8,
-        tag: []u8,
+        tag: *[tag_bytes]u8,
         msg: []const u8,
         ad: []const u8,
-        nonce: []const u8,
+        nonce: []u8,
     ) Error!void {
         // Check inputs' validity first to avoid unnecessary work
         if (msg.len + nonce.len > block_bytes) return Error.InvalidInputLength;
@@ -125,9 +125,9 @@ pub const Cymric = struct {
         ctx: Cymric,
         out: []u8,
         cipher: []const u8,
-        tag: []const u8,
+        tag: *const [tag_bytes]u8,
         ad: []const u8,
-        nonce: []const u8,
+        nonce: []u8,
     ) Error!void {
         // Check inputs' validity first to avoid unnecessary work
         if (cipher.len + nonce.len > block_bytes) return Error.InvalidInputLength;
@@ -210,10 +210,10 @@ pub const Cymric = struct {
     pub fn cymric2_encrypt(
         ctx: Cymric,
         out: []u8,
-        tag: []u8,
+        tag: *[tag_bytes]u8,
         msg: []const u8,
         ad: []const u8,
-        nonce: []const u8,
+        nonce: []u8,
     ) Error!void {
         // Check inputs' validity first to avoid unnecessary work
         if (msg.len > block_bytes) return Error.InvalidInputLength;
@@ -293,9 +293,9 @@ pub const Cymric = struct {
         ctx: Cymric,
         out: []u8,
         cipher: []const u8,
-        tag: []const u8,
+        tag: [tag_bytes]u8,
         ad: []const u8,
-        nonce: []const u8,
+        nonce: []u8,
     ) Error!void {
         // Check inputs' validity first to avoid unnecessary work
         if (cipher.len > block_bytes) return Error.InvalidInputLength;
