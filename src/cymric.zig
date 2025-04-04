@@ -4,7 +4,9 @@ const assert = std.debug.assert;
 
 const AesCtx = crypto.core.aes.AesEncryptCtx(crypto.core.aes.Aes128);
 
-pub const key_bytes = 16;
+const aes_key_bytes = 16;
+
+pub const key_bytes = 32;
 pub const nonce_bytes_max = 12;
 pub const block_bytes = 16;
 pub const tag_bytes = 16;
@@ -18,10 +20,10 @@ pub const Cymric = struct {
     roundkeys1: AesCtx,
     roundkeys2: AesCtx,
 
-    pub fn init(key: *const [key_bytes * 2]u8) Cymric {
+    pub fn init(key: *const [aes_key_bytes * 2]u8) Cymric {
         return .{
-            .roundkeys1 = AesCtx.init(key[0..key_bytes].*),
-            .roundkeys2 = AesCtx.init(key[key_bytes..][0..key_bytes].*),
+            .roundkeys1 = AesCtx.init(key[0..aes_key_bytes].*),
+            .roundkeys2 = AesCtx.init(key[aes_key_bytes..].*),
         };
     }
 
