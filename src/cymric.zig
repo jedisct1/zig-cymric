@@ -18,8 +18,7 @@ pub const Cymric = struct {
     roundkeys1: AesCtx,
     roundkeys2: AesCtx,
 
-    pub fn init(key: []const u8) Cymric {
-        assert(key.len == key_bytes * 2);
+    pub fn init(key: *const [key_bytes * 2]u8) Cymric {
         return .{
             .roundkeys1 = AesCtx.init(key[0..key_bytes].*),
             .roundkeys2 = AesCtx.init(key[key_bytes..][0..key_bytes].*),
