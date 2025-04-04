@@ -2,43 +2,29 @@ const std = @import("std");
 const crypto = std.crypto;
 const assert = std.debug.assert;
 
+const AesCtx = crypto.core.aes.AesEncryptCtx(crypto.core.aes.Aes128);
+
 pub const key_bytes = 16;
 pub const nonce_bytes = 12;
 pub const block_bytes = 16;
 pub const tag_bytes = 16;
 
+pub const Error = error{
+    InvalidInputLength,
+    AuthenticationFailed,
+};
+
 pub const Cymric = struct {
-    const AesRoundkeys = struct {
-        enc_ctx: crypto.core.aes.AesEncryptCtx(crypto.core.aes.Aes128),
-
-        fn init(key: []const u8) AesRoundkeys {
-            var key_array: [key_bytes]u8 = undefined;
-            @memcpy(&key_array, key[0..key_bytes]);
-            return .{
-                .enc_ctx = crypto.core.aes.Aes128.initEnc(key_array),
-            };
-        }
-
-        fn encrypt(self: *const AesRoundkeys, out: []u8, block: *const [block_bytes]u8) void {
-            self.enc_ctx.encrypt(out[0..block_bytes], block);
-        }
-    };
-
-    roundkeys1: AesRoundkeys,
-    roundkeys2: AesRoundkeys,
+    roundkeys1: AesCtx,
+    roundkeys2: AesCtx,
 
     pub fn init(key: []const u8) Cymric {
         assert(key.len == key_bytes * 2);
         return .{
-            .roundkeys1 = AesRoundkeys.init(key[0..key_bytes]),
-            .roundkeys2 = AesRoundkeys.init(key[key_bytes..]),
+            .roundkeys1 = AesCtx.init(key[0..key_bytes].*),
+            .roundkeys2 = AesCtx.init(key[key_bytes..][0..key_bytes].*),
         };
     }
-};
-
-pub const Error = error{
-    InvalidInputLength,
-    AuthenticationFailed,
 };
 
 inline fn xor(dst: *[block_bytes]u8, a: *const [block_bytes]u8, b: *const [block_bytes]u8) void {
