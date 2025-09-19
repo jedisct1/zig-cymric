@@ -2,7 +2,10 @@ const std = @import("std");
 const cymric = @import("cymric.zig");
 
 pub fn main() !void {
-    const stdout = std.io.getStdOut().writer();
+    const stdout_file = std.fs.File.stdout();
+    var buffer: [1024]u8 = undefined;
+    var writer = stdout_file.writer(buffer[0..]);
+    const stdout = &writer.interface;
 
     // Test vectors matching the C implementation
     const key = [_]u8{ 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c, 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
@@ -86,4 +89,7 @@ pub fn main() !void {
         try stdout.print("{x:0>2}", .{byte});
     }
     try stdout.print("\n", .{});
+
+    // Flush the stdout buffer
+    try stdout.flush();
 }
