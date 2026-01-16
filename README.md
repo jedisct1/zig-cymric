@@ -3,4 +3,4 @@
 Implementations of the Cymric1 and Cymric2 authenticated encryption
 modes instantiated with AES.
 
-Cymric [original implementations and overview](https://github.com/aadomn/cymric).
+Cymric [original implementations and overview](https://github.com/aadomn/cymric). See the [paper](https://eprint.iacr.org/2025/1217.pdf) for details.
