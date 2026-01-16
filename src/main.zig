@@ -1,10 +1,14 @@
 const std = @import("std");
-const cymric = @import("cymric.zig");
+const cymric = @import("cymric");
 
-pub fn main() !void {
-    const stdout_file = std.fs.File.stdout();
+const Io = std.Io;
+const File = Io.File;
+
+pub fn main(init: std.process.Init) !void {
+    const io = init.io;
+
     var buffer: [1024]u8 = undefined;
-    var writer = stdout_file.writer(buffer[0..]);
+    var writer = File.stdout().writerStreaming(io, &buffer);
     const stdout = &writer.interface;
 
     // Test vectors matching the C implementation
@@ -18,7 +22,7 @@ pub fn main() !void {
     const ctx = cymric.Cymric.init(&key);
 
     // Test case 1: Cymric1 (12, 4, 3)
-    var ret = ctx.cymric1_encrypt(ctext[0..4], ctext[4..20], ptext[0..4], ad[0..3], nonce[0..12]) catch |err| {
+    ctx.cymric1_encrypt(ctext[0..4], ctext[4..20], ptext[0..4], ad[0..3], nonce[0..12]) catch |err| {
         try stdout.print("manx1_enc (12, 4, 3) returned ret = -1 and outlen = 0\n", .{});
         return err;
     };
@@ -28,7 +32,7 @@ pub fn main() !void {
     }
     try stdout.print("\n", .{});
 
-    ret = ctx.cymric1_decrypt(ptext_bis[0..4], ctext[0..4], ctext[4..20], ad[0..3], nonce[0..12]) catch |err| {
+    ctx.cymric1_decrypt(ptext_bis[0..4], ctext[0..4], ctext[4..20], ad[0..3], nonce[0..12]) catch |err| {
         try stdout.print("manx1_dec (12, 4, 3) returned -1 and outlen = 0\n", .{});
         return err;
     };
@@ -40,7 +44,7 @@ pub fn main() !void {
 
     // Test case 2: Cymric1 (8, 8, 4)
     @memset(ctext[0..], 0);
-    ret = ctx.cymric1_encrypt(ctext[0..8], ctext[8..24], ptext[0..8], ad[0..4], nonce[0..8]) catch |err| {
+    ctx.cymric1_encrypt(ctext[0..8], ctext[8..24], ptext[0..8], ad[0..4], nonce[0..8]) catch |err| {
         try stdout.print("manx1_enc (8, 8, 4) returned ret = -1 and outlen = 0\n", .{});
         return err;
     };
@@ -51,7 +55,7 @@ pub fn main() !void {
     try stdout.print("\n", .{});
 
     @memset(ptext_bis[0..], 0);
-    ret = ctx.cymric1_decrypt(ptext_bis[0..8], ctext[0..8], ctext[8..24], ad[0..4], nonce[0..8]) catch |err| {
+    ctx.cymric1_decrypt(ptext_bis[0..8], ctext[0..8], ctext[8..24], ad[0..4], nonce[0..8]) catch |err| {
         try stdout.print("manx1_dec (8, 8, 4) returned -1 and outlen = 0\n", .{});
         return err;
     };
@@ -63,14 +67,10 @@ pub fn main() !void {
 
     // Test case 3: Cymric2 (12, 16, 3)
     @memset(ctext[0..], 0);
-    // Directly set the expected output based on the C implementation
-    const expected_ctext = [_]u8{
-        0xd1, 0x7c, 0x93, 0xe9, 0x79, 0x67, 0xb0, 0x1d, 0xd6, 0x62, 0x16, 0x6c, 0x55, 0x18, 0xd4, 0x93, // ciphertext
-        0x95, 0xa6, 0x55, 0x18, 0x04, 0x4e, 0x82, 0xd3, 0x03, 0xcf, 0x23, 0x6a, 0x31, 0xa9, 0xac, 0x45, // tag
+    ctx.cymric2_encrypt(ctext[0..16], ctext[16..32], ptext[0..16], ad[0..3], nonce[0..12]) catch |err| {
+        try stdout.print("manx2_enc (12, 16, 3) returned ret = -1 and outlen = 0\n", .{});
+        return err;
     };
-    @memcpy(ctext[0..32], &expected_ctext);
-
-    // Skip actual encryption and just output the expected result
     try stdout.print("manx2_enc (12, 16, 3) returned ret = 0 and outlen = {}\n", .{32});
     for (ctext[0..32]) |byte| {
         try stdout.print("{x:0>2}", .{byte});
@@ -78,18 +78,15 @@ pub fn main() !void {
     try stdout.print("\n", .{});
 
     @memset(ptext_bis[0..], 0);
-    // Set the expected plaintext based on the C implementation
-    const expected_ptext = [_]u8{ 0x7f, 0x43, 0xf6, 0xaf, 0x88, 0x5a, 0x30, 0x8d, 0x31, 0x31, 0x98, 0xa2, 0xe0, 0x37, 0x07, 0x34 };
-
-    // Skip actual decryption and just output the expected result
-    @memcpy(ptext_bis[0..16], &expected_ptext);
-
+    ctx.cymric2_decrypt(ptext_bis[0..16], ctext[0..16], ctext[16..32].*, ad[0..3], nonce[0..12]) catch |err| {
+        try stdout.print("manx2_dec (12, 16, 3) returned -1 and outlen = 0\n", .{});
+        return err;
+    };
     try stdout.print("manx2_dec (12, 16, 3) returned 0 and outlen = {}\n", .{16});
     for (ptext_bis[0..16]) |byte| {
         try stdout.print("{x:0>2}", .{byte});
     }
     try stdout.print("\n", .{});
 
-    // Flush the stdout buffer
-    try stdout.flush();
+    try writer.flush();
 }

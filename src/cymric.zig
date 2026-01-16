@@ -235,7 +235,7 @@ pub const Cymric = struct {
         block[nonce.len + ad.len] = b | 0x20;
 
         // Encrypt with AES
-        ctx.roundkey1s.encrypt(y0, &block);
+        ctx.roundkeys1.encrypt(y0, &block);
 
         // Prepare the second block: Y1 <- E_K(padn(N||A||b1))
         block[nonce.len + ad.len] = b | 0x60; // Set both bits in one operation

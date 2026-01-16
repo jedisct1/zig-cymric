@@ -4,13 +4,15 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const cymric_module = b.createModule(.{
+        .root_source_file = b.path("src/cymric.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
     const cymric_lib = b.addLibrary(.{
         .name = "cymric",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("src/cymric.zig"),
-            .target = target,
-            .optimize = optimize,
-        }),
+        .root_module = cymric_module,
     });
 
     b.installArtifact(cymric_lib);
@@ -21,10 +23,12 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("src/main.zig"),
             .target = target,
             .optimize = optimize,
+            .imports = &.{
+                .{ .name = "cymric", .module = cymric_module },
+            },
         }),
     });
 
-    main_exe.linkLibrary(cymric_lib);
     b.installArtifact(main_exe);
 
     const run_cmd = b.addRunArtifact(main_exe);
