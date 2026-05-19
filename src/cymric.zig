@@ -52,7 +52,7 @@ pub const Cymric = struct {
         if (nonce.len + ad.len > block_bytes - 1) return Error.InvalidInputLength;
 
         // Prepare aligned buffers for better performance
-        var tmp_buffer: [2 * block_bytes]u8 align(16) = [_]u8{0} ** (2 * block_bytes);
+        var tmp_buffer: [2 * block_bytes]u8 align(16) = @splat(0);
         const y0 = tmp_buffer[block_bytes..];
         const y1 = tmp_buffer[0..block_bytes];
 
@@ -60,7 +60,7 @@ pub const Cymric = struct {
         const b = if (msg.len + nonce.len == block_bytes) @as(u8, 1 << 7) else 0;
 
         // Prepare the first block: Y0 <- E_K(padn(N||A||b0))
-        var block: [block_bytes]u8 align(16) = [_]u8{0} ** block_bytes;
+        var block: [block_bytes]u8 align(16) = @splat(0);
         @memcpy(block[0..nonce.len], nonce);
         @memcpy(block[nonce.len .. nonce.len + ad.len], ad);
         block[nonce.len + ad.len] = b | 0x20;
@@ -135,16 +135,16 @@ pub const Cymric = struct {
         if (nonce.len + ad.len > block_bytes - 1) return Error.InvalidInputLength;
 
         // Prepare aligned buffers for better performance
-        var tmp_buffer: [2 * block_bytes]u8 align(16) = [_]u8{0} ** (2 * block_bytes);
+        var tmp_buffer: [2 * block_bytes]u8 align(16) = @splat(0);
         const y0 = tmp_buffer[block_bytes..];
         const y1 = tmp_buffer[0..block_bytes];
-        var tag_computed: [tag_bytes]u8 align(16) = [_]u8{0} ** tag_bytes;
+        var tag_computed: [tag_bytes]u8 align(16) = @splat(0);
 
         // Determine if |N|+|C|== n
         const b = if (cipher.len + nonce.len == block_bytes) @as(u8, 1 << 7) else 0;
 
         // Prepare the first block: Y0 <- E_K(padn(N||A||b0))
-        var block: [block_bytes]u8 align(16) = [_]u8{0} ** block_bytes;
+        var block: [block_bytes]u8 align(16) = @splat(0);
         @memcpy(block[0..nonce.len], nonce);
         @memcpy(block[nonce.len .. nonce.len + ad.len], ad);
         block[nonce.len + ad.len] = b | 0x20;
@@ -221,7 +221,7 @@ pub const Cymric = struct {
         if (nonce.len + ad.len > block_bytes - 1) return Error.InvalidInputLength;
 
         // Prepare aligned buffers for better performance
-        var tmp_buffer: [2 * block_bytes]u8 align(16) = [_]u8{0} ** (2 * block_bytes);
+        var tmp_buffer: [2 * block_bytes]u8 align(16) = @splat(0);
         const y0 = tmp_buffer[block_bytes..];
         const y1 = tmp_buffer[0..block_bytes];
 
@@ -229,7 +229,7 @@ pub const Cymric = struct {
         const b = if (msg.len == block_bytes) @as(u8, 1 << 7) else 0;
 
         // Prepare the first block: Y0 <- E_K(padn(N||A||b0))
-        var block: [block_bytes]u8 align(16) = [_]u8{0} ** block_bytes;
+        var block: [block_bytes]u8 align(16) = @splat(0);
         @memcpy(block[0..nonce.len], nonce);
         @memcpy(block[nonce.len .. nonce.len + ad.len], ad);
         block[nonce.len + ad.len] = b | 0x20;
@@ -303,16 +303,16 @@ pub const Cymric = struct {
         if (nonce.len + ad.len > block_bytes - 1) return Error.InvalidInputLength;
 
         // Prepare aligned buffers for better performance
-        var tmp_buffer: [2 * block_bytes]u8 align(16) = [_]u8{0} ** (2 * block_bytes);
+        var tmp_buffer: [2 * block_bytes]u8 align(16) = @splat(0);
         const y0 = tmp_buffer[block_bytes..];
         const y1 = tmp_buffer[0..block_bytes];
-        var tag_computed: [tag_bytes]u8 align(16) = [_]u8{0} ** tag_bytes;
+        var tag_computed: [tag_bytes]u8 align(16) = @splat(0);
 
         // Determine if |C|== n
         const b = if (cipher.len == block_bytes) @as(u8, 1 << 7) else 0;
 
         // Prepare the first block: Y0 <- E_K(padn(N||A||b0))
-        var block: [block_bytes]u8 align(16) = [_]u8{0} ** block_bytes;
+        var block: [block_bytes]u8 align(16) = @splat(0);
         @memcpy(block[0..nonce.len], nonce);
         @memcpy(block[nonce.len .. nonce.len + ad.len], ad);
         block[nonce.len + ad.len] = b | 0x20;
